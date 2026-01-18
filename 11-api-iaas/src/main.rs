@@ -3,7 +3,7 @@ mod application;
 mod infrastructure;
 
 use std::sync::Arc;
-use crate::application::{ServerService, ManageServers, CreateServerCommand, AttachDiskCommand};
+use crate::application::{ServerService, ManageServers};
 use crate::infrastructure::persistence::JsonServerRepository;
 use crate::infrastructure::web::routes;
 
@@ -51,6 +51,7 @@ async fn main() -> anyhow::Result<()> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
+    use crate::application::{CreateServerCommand, AttachDiskCommand};
     
     /// Integration Test: Verifies that the whole chain (Core -> Repo -> Filesystem) works.
     #[tokio::test]
@@ -109,6 +110,34 @@ mod tests {
         // Assert
         assert_eq!(updated_server.additional_disks.len(), 1);
         assert_eq!(updated_server.additional_disks[0].size_gb, 100);
+
+        Ok(())
+    }
+
+    /// Unit/Integration Test: Verifies that the OpenAPI spec is generated and exposed correctly.
+    #[tokio::test]
+    async fn test_openapi_spec_exposure() -> anyhow::Result<()> {
+        let test_dir = tempdir()?;
+        let test_dir_path = test_dir.path().to_str().unwrap();
+        let repo = Arc::new(JsonServerRepository::new(test_dir_path)?);
+        let service: Arc<dyn ManageServers> = Arc::new(ServerService::new(repo));
+        
+        let api = routes(service);
+
+        // Request the OpenAPI JSON
+        let resp = warp::test::request()
+            .method("GET")
+            .path("/api-doc/openapi.json")
+            .reply(&api)
+            .await;
+
+        assert_eq!(resp.status(), 200);
+        
+        // Verify it contains our main endpoints
+        let body_str = std::str::from_utf8(resp.body()).unwrap();
+        assert!(body_str.contains("/servers"));
+        assert!(body_str.contains("IaaS API"));
+        assert!(body_str.contains("CreateServerRequest"));
 
         Ok(())
     }

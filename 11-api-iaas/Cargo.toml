@@ -32,6 +32,10 @@ async-trait = "0.1"
 # Alternatives: 'thiserror' is better if you are building a library for others to use.
 anyhow = "1.0"
 
+# utoipa: Compile-time OpenAPI documentation generation.
+# Why: It allows generating OpenAPI specs directly from Rust types using macros.
+utoipa = { version = "5", features = ["uuid"] }
+
 [dev-dependencies]
 # tempfile: Securely managing temporary directories for tests.
 # Why: Ensures test isolation by giving each test its own clean storage path.

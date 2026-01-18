@@ -10,12 +10,13 @@ use crate::application::{ManageServers, CreateServerCommand, AttachDiskCommand};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
+use utoipa::{OpenApi, ToSchema};
 use warp::{Filter, Rejection, Reply};
 
 // --- Inbound DTOs (Request Bodies) ---
 // Just like Pydantic models in Python or JSON struct tags in Go.
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct CreateServerRequest {
     pub name: String,
     pub cpu: u32,
@@ -23,7 +24,7 @@ pub struct CreateServerRequest {
     pub storage: u32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct CreateDiskRequest {
     pub size_gb: u32,
 }
@@ -33,7 +34,7 @@ pub struct CreateDiskRequest {
 // Answer: Decoupling. We don't want to break our API just because we changed 
 // how our internal Server struct looks. This is a common pattern in big Go/Python projects too.
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct ServerResponse {
     pub id: Uuid,
     pub name: String,
@@ -41,7 +42,7 @@ pub struct ServerResponse {
     pub disks: Vec<DiskResponse>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct DiskResponse {
     pub id: Uuid,
     pub size_gb: u32,
@@ -53,6 +54,22 @@ fn with_port(
 ) -> impl Filter<Extract = (Arc<dyn ManageServers>,), Error = std::convert::Infallible> + Clone {
     warp::any().map(move || Arc::clone(&port))
 }
+
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        handle_create_server,
+        handle_list_servers,
+        handle_attach_disk,
+    ),
+    components(
+        schemas(CreateServerRequest, CreateDiskRequest, ServerResponse, DiskResponse)
+    ),
+    tags(
+        (name = "IaaS API", description = "Server management endpoints")
+    )
+)]
+pub struct ApiDoc;
 
 /// Routing setup in Warp is "Functional" and uses "Filters".
 /// Good to know (Go/Python context): Think of this as a chain of middleware. 
@@ -83,9 +100,27 @@ pub fn routes(
         .and(with_port(Arc::clone(&port)))
         .and_then(handle_attach_disk);
 
-    create_server.or(list_servers).or(attach_disk)
+    // --- OpenAPI ---
+    
+    // Route to expose the OpenAPI JSON
+    let openapi_json = warp::path!("api-doc" / "openapi.json")
+        .map(|| warp::reply::json(&ApiDoc::openapi()));
+
+    create_server
+        .or(list_servers)
+        .or(attach_disk)
+        .or(openapi_json)
 }
 
+#[utoipa::path(
+    post,
+    path = "/servers",
+    request_body = CreateServerRequest,
+    responses(
+        (status = 200, description = "Server created successfully", body = ServerResponse),
+        (status = 400, description = "Invalid request")
+    )
+)]
 /// Handler: Like a Controller method in Python or a Handler function in Go.
 /// 'async fn': Handlers are asynchronous because they wait for the Core logic 
 /// (which might wait for the Database) without blocking the thread.
@@ -111,6 +146,13 @@ async fn handle_create_server(
     }
 }
 
+#[utoipa::path(
+    get,
+    path = "/servers",
+    responses(
+        (status = 200, description = "List all servers", body = [ServerResponse])
+    )
+)]
 /// Handler for listing all servers. Translates the results into Web Response DTOs.
 async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Reply, Rejection> {
     match port.list_servers().await {
@@ -122,6 +164,18 @@ async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Reply,
     }
 }
 
+#[utoipa::path(
+    post,
+    path = "/servers/{id}/disks",
+    request_body = CreateDiskRequest,
+    params(
+        ("id" = Uuid, Path, description = "Server UUID")
+    ),
+    responses(
+        (status = 200, description = "Disk attached successfully", body = ServerResponse),
+        (status = 404, description = "Server not found")
+    )
+)]
 /// Handler for disk attachment requests. 
 /// Extracts the server ID from the path and the disk info from the request body.
 async fn handle_attach_disk(
@@ -153,5 +207,35 @@ fn map_to_response(server: crate::domain::Server) -> ServerResponse {
             id: d.id,
             size_gb: d.size_gb,
         }).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::domain::{ServerStatus, Disk};
+
+    #[test]
+    fn test_map_to_response() {
+        let server = crate::domain::Server {
+            id: Uuid::new_v4(),
+            name: "test-vm".to_string(),
+            cpu_cores: 2,
+            ram_gb: 4,
+            storage_gb: 40,
+            status: ServerStatus::Running,
+            additional_disks: vec![Disk {
+                id: Uuid::new_v4(),
+                size_gb: 100,
+            }],
+        };
+
+        let response = map_to_response(server.clone());
+
+        assert_eq!(response.id, server.id);
+        assert_eq!(response.name, server.name);
+        assert_eq!(response.status, "Running");
+        assert_eq!(response.disks.len(), 1);
+        assert_eq!(response.disks[0].size_gb, 100);
     }
 }
