@@ -1,0 +1,18 @@
+# Rust / Cargo
+**/target/
+
+# Local Storage (11-api-iaas sample)
+**/storage/
+**/test_storage/
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+*.log

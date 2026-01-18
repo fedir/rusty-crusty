@@ -1,0 +1,15 @@
+use warp::Filter;
+
+#[tokio::main]
+async fn main() {
+    // GET /hello/warp => 200 OK with body "Hello, warp!"
+    let hello = warp::path!("hello" / String)
+        .map(|name| format!("Hello, {}!", name));
+
+    println!("Starting server at http://127.0.0.1:3030");
+    println!("Try visiting: http://127.0.0.1:3030/hello/world");
+    
+    warp::serve(hello)
+        .run(([127, 0, 0, 1], 3030))
+        .await;
+}
