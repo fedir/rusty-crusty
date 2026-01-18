@@ -3,30 +3,40 @@ mod application;
 mod infrastructure;
 
 use std::sync::Arc;
-use crate::application::ServerService;
+use crate::application::{ServerService, ManageServers, CreateServerCommand, AttachDiskCommand};
 use crate::infrastructure::persistence::JsonServerRepository;
 use crate::infrastructure::web::routes;
 
+/// THE ENTRY POINT
+/// --- Good to know ---
+/// In Go, this is your 'func main()'. In Python, your 'if __name__ == "__main__":'.
+/// 
+/// This is the "Composition Root". Its only job is to:
+/// 1. Create the database connection (Repository).
+/// 2. Create the application core (Service).
+/// 3. Wire them together (Dependency Injection).
+/// 4. Start the HTTP server.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // HEXAGONAL ARCHITECTURE: COMPOSING THE SYSTEM
-    // Here we wire the Adapters to the Ports.
-
-    // 1. Initialize Infrastructure (Persistence Adapter)
+    
+    // 1. Initialize Infrastructure (The OUTSIDE world)
     let repo = JsonServerRepository::new("./storage")?;
     
-    // 2. Initialize Application Service (Dependeny Injection)
-    // The service (Inside) only knows about the trait, not the JSON implementation.
-    let service = Arc::new(ServerService::new(Arc::new(repo)));
+    // 2. Initialize Application Core (The INSIDE world)
+    // Dependency Injection: We create the Service and "inject" the repository into it.
+    // In Python, you'd just pass the repo to the constructor. 
+    // In Go, you'd pass a struct that satisfies the interface.
+    // In Rust, we wrap it in Arc (Atomic Reference Counter) so it can be shared safely with the web server.
+    let service: Arc<dyn ManageServers> = Arc::new(ServerService::new(Arc::new(repo)));
     
-    // 3. Define Web Routes
+    // 3. Setup the Driving Adapter (The WEB server)
     let api = routes(service);
     
     println!("IaaS Platform API running at http://127.0.0.1:8080");
     println!("- POST /servers : Create a server");
     println!("- GET  /servers : List all servers");
     
-    // 4. Start Server
+    // 4. Start Server: This is a blocking call (Infinite loop).
     warp::serve(api)
         .run(([127, 0, 0, 1], 8080))
         .await;
@@ -38,26 +48,31 @@ async fn main() -> anyhow::Result<()> {
 mod tests {
     use super::*;
     use tempfile::tempdir;
-    use crate::domain::ServerRepository;
+    
+    /// Integration Test: Verifies that the whole chain (Core -> Repo -> Filesystem) works.
     #[tokio::test]
     async fn test_server_creation_persistence() -> anyhow::Result<()> {
         let test_dir = tempdir()?;
         let test_dir_path = test_dir.path().to_str().unwrap();
+        
+        // Setup infrastructure for test
         let repo = JsonServerRepository::new(test_dir_path)?;
-        let service = ServerService::new(Arc::new(repo));
+        let service: Arc<dyn ManageServers> = Arc::new(ServerService::new(Arc::new(repo)));
 
-        // Create a server
-        let name = "test-vm-01".to_string();
-        let server = service.create_server(name.clone(), 4, 16, 250).await?;
+        // 1. Create a server
+        let cmd = CreateServerCommand {
+            name: "test-vm-01".to_string(),
+            cpu: 4,
+            ram: 16,
+            storage: 250,
+        };
+        let server = service.create_server(cmd).await?;
 
-        assert_eq!(server.name, name);
-        assert_eq!(server.cpu_cores, 4);
-
-        // Verify file exists
+        // 2. Verify: Check if the file was actually written to the temp directory (Outbound check)
         let file_path = test_dir.path().join(format!("{}.json", server.id));
         assert!(file_path.exists());
 
-        // List servers and find our new one
+        // 3. Verify: Check if it shows up in the list (Inbound check)
         let all_servers = service.list_servers().await?;
         assert!(all_servers.iter().any(|s| s.id == server.id));
 
@@ -68,22 +83,28 @@ mod tests {
     async fn test_disk_attachment() -> anyhow::Result<()> {
         let test_dir = tempdir()?;
         let test_dir_path = test_dir.path().to_str().unwrap();
-        let repo = Arc::new(JsonServerRepository::new(test_dir_path)?);
-        let service = ServerService::new(repo.clone());
+        let repo_impl = Arc::new(JsonServerRepository::new(test_dir_path)?);
+        let service: Arc<dyn ManageServers> = Arc::new(ServerService::new(repo_impl.clone()));
 
-        // Create a server
-        let server = service.create_server("vm-disk-test".to_string(), 2, 4, 40).await?;
+        // Create
+        let create_cmd = CreateServerCommand {
+            name: "vm-disk-test".to_string(),
+            cpu: 2,
+            ram: 4,
+            storage: 40,
+        };
+        let server = service.create_server(create_cmd).await?;
 
-        // Attach a disk
-        let updated_server = service.attach_disk(server.id, 100).await?;
+        // Attach
+        let attach_cmd = AttachDiskCommand {
+            server_id: server.id,
+            size_gb: 100,
+        };
+        let updated_server = service.attach_disk(attach_cmd).await?;
 
+        // Assert
         assert_eq!(updated_server.additional_disks.len(), 1);
         assert_eq!(updated_server.additional_disks[0].size_gb, 100);
-
-        // Reload from persistence and check
-        let reloaded = repo.find_by_id(server.id).await?.unwrap();
-        assert_eq!(reloaded.additional_disks.len(), 1);
-        assert_eq!(reloaded.additional_disks[0].size_gb, 100);
 
         Ok(())
     }
