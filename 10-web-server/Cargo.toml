@@ -2,7 +2,13 @@
 name = "web-server"
 version = "0.1.0"
 edition = "2021"
+description = "A minimal web server demonstration using the Warp framework."
 
 [dependencies]
-warp = "0.3"
+# tokio: Powering our async execution. (See 09-async-await for alternatives)
 tokio = { version = "1", features = ["full"] }
+
+# warp: A super-easy, composable web framework built on top of Filters.
+# Why: It encourages a functional style and is very type-safe.
+# Alternatives: 'actix-web' (blazing fast but more complex); 'axum' (modern, based on Tower, currently the industry favorite).
+warp = "0.3"

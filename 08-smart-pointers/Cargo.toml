@@ -2,5 +2,6 @@
 name = "smart-pointers"
 version = "0.1.0"
 edition = "2021"
+description = "A deep dive into Rust's smart pointers: Box<T>, Rc<T>, and RefCell<T> for memory management."
 
 [dependencies]

@@ -2,12 +2,18 @@ use rand::Rng;
 use std::cmp::Ordering;
 use std::io; // Requires `rand` dependency
 
+/// The entry point of the guessing game.
+/// It introduces the game, asks for a range, generates a secret number,
+/// and enters a loop where the user can guess until they win.
 fn main() {
     println!("Guess the number!");
 
+    // Ask user to define the range for the secret number.
     let (min, max) = get_range();
     println!("Generating secret number between {} and {}...", min, max);
 
+    // thread_rng() gives us the random number generator that's local to the current thread.
+    // gen_range(min..=max) generates a number in the inclusive range [min, max].
     let secret_number = rand::thread_rng().gen_range(min..=max);
 
     loop {
@@ -15,28 +21,36 @@ fn main() {
 
         let mut guess = String::new();
 
+        // Read user input from standard input.
         io::stdin()
             .read_line(&mut guess)
             .expect("Failed to read line");
 
+        // Parse the string into a u32 number. If parsing fails, skip the rest of the loop.
         let guess: u32 = match guess.trim().parse() {
             Ok(num) => num,
-            Err(_) => continue,
+            Err(_) => {
+                println!("Please type a valid positive number!");
+                continue;
+            }
         };
 
         println!("You guessed: {guess}");
 
+        // Compare the guess to the secret number.
         match check_guess(guess, secret_number) {
             Ordering::Less => println!("Too small!"),
             Ordering::Greater => println!("Too big!"),
             Ordering::Equal => {
                 println!("You win!");
-                break;
+                break; // Exit the loop when the guess is correct.
             }
         }
     }
 }
 
+/// Helper function to prompt for and read a numeric input from standard input.
+/// It keeps asking until a valid u32 is provided.
 fn get_input(prompt: &str) -> u32 {
     loop {
         println!("{}", prompt);
@@ -51,6 +65,7 @@ fn get_input(prompt: &str) -> u32 {
     }
 }
 
+/// Prompts the user for a minimum and maximum and ensures the range is valid (max > min).
 fn get_range() -> (u32, u32) {
     loop {
         let min = get_input("Enter minimum number:");
@@ -62,6 +77,7 @@ fn get_range() -> (u32, u32) {
     }
 }
 
+/// Compares a guess against the secret number and returns the Ordering (Less, Greater, or Equal).
 fn check_guess(guess: u32, secret: u32) -> Ordering {
     guess.cmp(&secret)
 }

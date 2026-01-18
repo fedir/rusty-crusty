@@ -1,7 +1,10 @@
+/// A trait defining a common behavior for summarizing content.
 pub trait Summary {
+    /// Returns a summary string. Each implementing type must provide its own logic.
     fn summarize(&self) -> String;
 }
 
+/// A news article struct with several metadata fields.
 pub struct NewsArticle {
     pub headline: String,
     pub location: String,
@@ -9,12 +12,14 @@ pub struct NewsArticle {
     pub content: String,
 }
 
+/// Implement the Summary trait for NewsArticle.
 impl Summary for NewsArticle {
     fn summarize(&self) -> String {
         format!("{}, by {} ({})", self.headline, self.author, self.location)
     }
 }
 
+/// A tweet struct representing a short status update.
 pub struct Tweet {
     pub username: String,
     pub content: String,
@@ -22,13 +27,15 @@ pub struct Tweet {
     pub retweet: bool,
 }
 
+/// Implement the Summary trait for Tweet.
 impl Summary for Tweet {
     fn summarize(&self) -> String {
         format!("{}: {}", self.username, self.content)
     }
 }
 
-// Generic function with trait bound
+/// A generic function that works with any type T that implements the Summary trait.
+/// This is called "Trait Bound" syntax.
 fn notify<T: Summary>(item: &T) {
     println!("Breaking news! {}", item.summarize());
 }
@@ -56,4 +63,31 @@ fn main() {
 
     notify(&article);
     notify(&tweet);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_article_summary() {
+        let article = NewsArticle {
+            headline: String::from("Rust is awesome"),
+            location: String::from("Global"),
+            author: String::from("Dev"),
+            content: String::from("..."),
+        };
+        assert_eq!(article.summarize(), "Rust is awesome, by Dev (Global)");
+    }
+
+    #[test]
+    fn test_tweet_summary() {
+        let tweet = Tweet {
+            username: String::from("rustlang"),
+            content: String::from("Rust 1.75 is out!"),
+            reply: false,
+            retweet: false,
+        };
+        assert_eq!(tweet.summarize(), "rustlang: Rust 1.75 is out!");
+    }
 }

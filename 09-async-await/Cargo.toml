@@ -2,6 +2,10 @@
 name = "async-await"
 version = "0.1.0"
 edition = "2021"
+description = "A practical introduction to non-blocking asynchronous code using the Tokio runtime."
 
 [dependencies]
+# tokio: The most widely used asynchronous runtime in the Rust ecosystem.
+# Why: It has the largest ecosystem of compatible crates and handles I/O, timers, and scheduling.
+# Alternatives: 'async-std' is a great alternative but has a smaller community; 'smol' is smaller but requires more manual setup.
 tokio = { version = "1", features = ["full"] }

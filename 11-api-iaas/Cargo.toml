@@ -2,16 +2,38 @@
 name = "api-iaas"
 version = "0.1.0"
 edition = "2021"
+description = "A sophisticated IaaS API sample implementing Hexagonal Architecture with persistence and disk attachment."
 
 [dependencies]
+# serde: The infrastructure for data serialization in Rust.
+# Why: Standard for almost all Rust projects needing JSON/XML/YAML. No real competitor.
 serde = { version = "1.0", features = ["derive"] }
+
+# serde_json: Specifically for JSON support using Serde.
 serde_json = "1.0"
+
+# uuid: Handling unique IDs reliably.
+# Why: The standard crate for UUID v4 generation.
 uuid = { version = "1.0", features = ["v4", "serde"] }
+
+# tokio: Industry-standard async runtime. (See 09-async-await for details)
 tokio = { version = "1", features = ["full"] }
+
+# warp: Functional web framework using Filter composition.
+# Why: Great for small/medium APIs where "filters" keep the code modular (Hexagonal compatible).
 warp = "0.3"
+
+# async-trait: Allows 'async' keyword in trait methods.
+# Why: Native async-in-trait is still evolving in older Rust versions; this is more stable for complex traits.
 async-trait = "0.1"
+
+# anyhow: Simplified error handling for applications.
+# Why: Perfect for "bubbling up" errors without defining complex custom error types.
+# Alternatives: 'thiserror' is better if you are building a library for others to use.
 anyhow = "1.0"
 
 [dev-dependencies]
+# tempfile: Securely managing temporary directories for tests.
+# Why: Ensures test isolation by giving each test its own clean storage path.
 tempfile = "3"
 

@@ -2,6 +2,10 @@
 name = "guessing-game"
 version = "0.1.0"
 edition = "2021"
+description = "A classic interactive guessing game project that asks users for custom ranges and handles invalid input."
 
 [dependencies]
+# rand: The de-facto standard for random number generation in Rust.
+# Why: Highly reliable and feature-rich. 
+# Alternatives: 'getrandom' is too low-level; 'fastrand' is faster but lacks the cryptographic quality/features of rand.
 rand = "0.8.5"

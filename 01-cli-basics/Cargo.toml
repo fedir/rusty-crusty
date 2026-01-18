@@ -2,5 +2,6 @@
 name = "cli-basics"
 version = "0.1.0"
 edition = "2021"
+description = "A basic CLI application demonstrating argument parsing, help flags, and unit testing in Rust."
 
 [dependencies]

@@ -34,6 +34,7 @@ pub enum ServerStatus {
 }
 
 impl Server {
+    /// Creates a new Server instance with default Provisioning status and no additional disks.
     pub fn new(name: String, cpu_cores: u32, ram_gb: u32, storage_gb: u32) -> Self {
         Self {
             id: Uuid::new_v4(),
@@ -52,7 +53,12 @@ impl Server {
 /// The infrastructure layer will implement this trait (Adapter).
 #[async_trait]
 pub trait ServerRepository: Send + Sync {
+    /// Persists a server entity to the storage medium.
     async fn save(&self, server: &Server) -> anyhow::Result<()>;
+    
+    /// Retrieves all persisted servers.
     async fn list_all(&self) -> anyhow::Result<Vec<Server>>;
+    
+    /// Attempts to find a single server by its unique identifier.
     async fn find_by_id(&self, id: Uuid) -> anyhow::Result<Option<Server>>;
 }

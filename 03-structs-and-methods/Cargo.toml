@@ -2,5 +2,6 @@
 name = "structs-and-methods"
 version = "0.1.0"
 edition = "2021"
+description = "A demonstration of Rust structs, associated functions (like constructors), and instance methods."
 
 [dependencies]

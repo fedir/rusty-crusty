@@ -52,6 +52,8 @@ pub fn routes(
     create_server.or(list_servers).or(attach_disk)
 }
 
+/// Handler for creating a new server.
+/// Translates the JSON request body into a call to the domain service.
 async fn handle_create_server(
     req: CreateServerRequest,
     service: Arc<ServerService>,
@@ -62,6 +64,8 @@ async fn handle_create_server(
     }
 }
 
+/// Handler for listing all available servers.
+/// Fetches the data from the service and returns it as a JSON array.
 async fn handle_list_servers(service: Arc<ServerService>) -> Result<impl Reply, Rejection> {
     match service.list_servers().await {
         Ok(servers) => Ok(warp::reply::json(&servers)),
@@ -69,6 +73,8 @@ async fn handle_list_servers(service: Arc<ServerService>) -> Result<impl Reply, 
     }
 }
 
+/// Handler for attaching a new disk to an existing server.
+/// Uses the server ID from the URL path and the size from the JSON body.
 async fn handle_attach_disk(
     server_id: uuid::Uuid,
     req: CreateDiskRequest,

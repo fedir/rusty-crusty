@@ -2,5 +2,6 @@
 name = "enums-and-matching"
 version = "0.1.0"
 edition = "2021"
+description = "Demonstration of Rust enums, pattern matching, and the Option enum."
 
 [dependencies]
