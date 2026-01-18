@@ -46,12 +46,17 @@ pub struct ServerService {
     repo: Arc<dyn ServerRepository>,
 }
 
+/// 'impl ServerService': Defining private/utility methods for this struct.
 impl ServerService {
+    /// Creates a new ServerService with the provided repository.
     pub fn new(repo: Arc<dyn ServerRepository>) -> Self {
         Self { repo }
     }
 }
 
+/// 'impl ManageServers for ServerService': 
+/// This is how Rust implements an Interface (Trait) for a specific Struct.
+/// It's exactly like implementing an Interface in Go or an Abstract Base Class in Python.
 #[async_trait]
 impl ManageServers for ServerService {
     /// Use Case: Create Server. 
@@ -65,11 +70,13 @@ impl ManageServers for ServerService {
         Ok(server)
     }
 
+    /// Retrieves a list of all servers from the repository.
     async fn list_servers(&self) -> anyhow::Result<Vec<Server>> {
         self.repo.list_all().await
     }
 
     /// Use Case: Attach Disk.
+    /// Attaches a new disk volume to the specified server.
     async fn attach_disk(&self, cmd: AttachDiskCommand) -> anyhow::Result<Server> {
         // 1. Fetch existing server (or error if not found)
         let mut server = self.repo.find_by_id(cmd.server_id).await?

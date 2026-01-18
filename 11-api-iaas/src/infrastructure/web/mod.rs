@@ -87,6 +87,8 @@ pub fn routes(
 }
 
 /// Handler: Like a Controller method in Python or a Handler function in Go.
+/// 'async fn': Handlers are asynchronous because they wait for the Core logic 
+/// (which might wait for the Database) without blocking the thread.
 async fn handle_create_server(
     req: CreateServerRequest,
     port: Arc<dyn ManageServers>,
@@ -99,6 +101,9 @@ async fn handle_create_server(
         storage: req.storage,
     };
     
+    // '.await' tells Rust to pause here until the operation completes, 
+    // letting the CPU do other work in the meantime. 
+    // Similar to 'await' in JavaScript/Python.
     match port.create_server(cmd).await {
         // Translate the Domain Result back into a Web Response (JSON).
         Ok(server) => Ok(warp::reply::json(&map_to_response(server))),
@@ -106,6 +111,7 @@ async fn handle_create_server(
     }
 }
 
+/// Handler for listing all servers. Translates the results into Web Response DTOs.
 async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Reply, Rejection> {
     match port.list_servers().await {
         Ok(servers) => {
@@ -116,6 +122,8 @@ async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Reply,
     }
 }
 
+/// Handler for disk attachment requests. 
+/// Extracts the server ID from the path and the disk info from the request body.
 async fn handle_attach_disk(
     server_id: uuid::Uuid,
     req: CreateDiskRequest,

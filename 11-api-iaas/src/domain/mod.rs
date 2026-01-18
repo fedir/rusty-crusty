@@ -43,6 +43,10 @@ pub enum ServerStatus {
     Stopped,
 }
 
+/// 'impl' (Implementation) block: 
+/// This is where we define methods for the 'Server' struct. 
+/// In Python, this would be the methods inside a class. 
+/// In Go, these are functions with a 'Server' receiver.
 impl Server {
     /// Constructor. By convention, named 'new'.
     /// Similar to __init__ in Python or NewServer in Go.
@@ -66,13 +70,20 @@ impl Server {
 /// 
 /// The Application layer depends on this interface, allowing us to swap 
 /// a File Repository for a SQL Repository without changing business logic.
+/// #[async_trait] and 'async fn':
+/// Rust's 'async' allows the CPU to do other work while waiting for I/O (like a file or DB).
+/// It is similar to Python's 'async/await' or Go's high-concurrency model.
+///
+/// 'anyhow::Result': Like '(Result, error)' in Go. It simplifies error handling.
 #[async_trait]
 pub trait ServerRepository: Send + Sync {
     /// async fn is equivalent to Python's 'async def' or Go's goroutine-friendly calls.
     /// anyhow::Result is like a standard Error return in Go or an Exception in Python.
     async fn save(&self, server: &Server) -> anyhow::Result<()>;
     
+    /// Retrieves all servers currently stored in the system.
     async fn list_all(&self) -> anyhow::Result<Vec<Server>>;
     
+    /// Finds a specific server by its unique UUID. Returns None if not found.
     async fn find_by_id(&self, id: Uuid) -> anyhow::Result<Option<Server>>; // Option<T> is like T | None in Python.
 }

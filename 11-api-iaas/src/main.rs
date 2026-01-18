@@ -16,6 +16,9 @@ use crate::infrastructure::web::routes;
 /// 2. Create the application core (Service).
 /// 3. Wire them together (Dependency Injection).
 /// 4. Start the HTTP server.
+/// #[tokio::main]: Rust doesn't have a built-in async runtime like Go.
+/// We use 'Tokio' as the engine to run our 'async' tasks. 
+/// It's the industry standard for high-performance networking in Rust.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     
@@ -79,6 +82,7 @@ mod tests {
         Ok(())
     }
 
+    /// Integration Test: Verifies that attaching a disk persists the state correctly.
     #[tokio::test]
     async fn test_disk_attachment() -> anyhow::Result<()> {
         let test_dir = tempdir()?;

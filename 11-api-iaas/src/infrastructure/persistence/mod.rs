@@ -15,7 +15,9 @@ pub struct JsonServerRepository {
     storage_dir: PathBuf, // PathBuf is like Python's 'pathlib.Path' - it handles OS paths safely.
 }
 
+/// 'impl' (Implementation) block for our repository struct.
 impl JsonServerRepository {
+    /// Creates a new repository instance pointing to the specified directory.
     pub fn new(path: &str) -> anyhow::Result<Self> {
         let storage_dir = PathBuf::from(path);
         if !storage_dir.exists() {
@@ -26,7 +28,9 @@ impl JsonServerRepository {
 }
 
 #[async_trait]
+/// Implementing the Domain Port (Interface) for our Infrastructure Adapter.
 impl ServerRepository for JsonServerRepository {
+    /// Serializes and saves the server state to a JSON file.
     async fn save(&self, server: &Server) -> anyhow::Result<()> {
         let file_path = self.storage_dir.join(format!("{}.json", server.id));
         
@@ -38,6 +42,7 @@ impl ServerRepository for JsonServerRepository {
         Ok(())
     }
 
+    /// Asynchronously loads and parses all JSON server files in the storage directory.
     async fn list_all(&self) -> anyhow::Result<Vec<Server>> {
         let mut servers = Vec::new();
         // Read directory: Like os.listdir() in Python.
@@ -58,6 +63,7 @@ impl ServerRepository for JsonServerRepository {
         Ok(servers)
     }
 
+    /// Asynchronously searches for a specific JSON file by server ID and deserializes it.
     async fn find_by_id(&self, id: Uuid) -> anyhow::Result<Option<Server>> {
         let file_path = self.storage_dir.join(format!("{}.json", id));
         if file_path.exists() {
