@@ -13,10 +13,20 @@ use super::mappings::map_to_response;
         (status = 400, description = "Invalid request")
     )
 )]
+/// WEB HANDLER: Create Server
+/// 
+/// --- Good to know ---
+/// Handlers are responsible for the "Outside -> Inside" translation.
+/// 1. Parse the request. 2. Create a Command (DTO). 3. Call the Port.
+/// 
+/// Comparison:
+/// - Go: Like a Gin/Echo handler function.
+/// - Python: Like a FastAPI "Path Operation" function.
 pub async fn handle_create_server(
     req: CreateServerRequest,
     port: Arc<dyn ManageServers>,
 ) -> Result<impl Reply, Rejection> {
+    // 1. Translate the Web Request into an Application Command.
     let cmd = CreateServerCommand {
         name: req.name,
         cpu: req.cpu,
@@ -24,7 +34,9 @@ pub async fn handle_create_server(
         storage: req.storage,
     };
     
+    // 2. Call the Inbound Port (Abstract Service).
     match port.create_server(cmd).await {
+        // 3. Translate the Domain Result back into a Web Response (JSON).
         Ok(server) => Ok(warp::reply::json(&map_to_response(server))),
         Err(_) => Err(warp::reject::reject()),
     }
@@ -37,6 +49,7 @@ pub async fn handle_create_server(
         (status = 200, description = "List all servers", body = [ServerResponse])
     )
 )]
+/// WEB HANDLER: List Servers
 pub async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Reply, Rejection> {
     match port.list_servers().await {
         Ok(servers) => {
@@ -59,6 +72,7 @@ pub async fn handle_list_servers(port: Arc<dyn ManageServers>) -> Result<impl Re
         (status = 404, description = "Server not found")
     )
 )]
+/// WEB HANDLER: Attach Disk
 pub async fn handle_attach_disk(
     server_id: uuid::Uuid,
     req: CreateDiskRequest,

@@ -13,6 +13,15 @@ use self::dto::{CreateDiskRequest, CreateServerRequest, DiskResponse, ServerResp
 use self::handlers::{handle_attach_disk, handle_create_server, handle_list_servers};
 use self::security::{handle_rejection, with_auth};
 
+/// HEXAGONAL ARCHITECTURE: INBOUND ADAPTER (Web)
+///
+/// --- Good to know ---
+/// This module is the entry point for our HTTP transport layer.
+///
+/// SOLID: This file now acts as a "Composition Root" for the web adapter.
+/// It doesn't contain business logic or individual handlers; it only wires
+/// them together into a routing table.
+
 #[derive(OpenApi)]
 #[openapi(
     paths(
@@ -36,19 +45,24 @@ fn with_port(
     warp::any().map(move || Arc::clone(&port))
 }
 
-/// Routing setup in Warp.
-/// SOLID: This file now ONLY handles route composition (SRP).
+/// Main entry point for the Web API.
+/// Orchestrates routes, security, CORS, and OpenAPI spec.
+///
+/// Comparison:
+/// - Go: Like your `RegisterRoutes(router *gin.Engine)` function.
+/// - Python: Like the `app = FastAPI()` setup and route registrations.
 pub fn routes(
     port: Arc<dyn ManageServers>,
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     // POST /servers
+    // We use .and() and other filters to build a declarative "Pipeline".
     let create_server = warp::post()
         .and(warp::path("servers"))
         .and(warp::path::end())
-        .and(with_auth())
-        .and(warp::body::content_length_limit(1024 * 16))
+        .and(with_auth()) // Inbound Auth Middleware
+        .and(warp::body::content_length_limit(1024 * 16)) // Security: Max Payload
         .and(warp::body::json())
-        .and(with_port(Arc::clone(&port)))
+        .and(with_port(Arc::clone(&port))) // Dependency Injection
         .and_then(handle_create_server);
 
     // GET /servers
@@ -72,7 +86,7 @@ pub fn routes(
     let openapi_json =
         warp::path!("api-doc" / "openapi.json").map(|| warp::reply::json(&ApiDoc::openapi()));
 
-    // CORS configuration
+    // CORS configuration: Inproduction, restrict origins!
     let cors = warp::cors()
         .allow_any_origin()
         .allow_headers(vec!["x-api-key", "content-type"])
@@ -82,7 +96,7 @@ pub fn routes(
         .or(list_servers)
         .or(attach_disk)
         .or(openapi_json)
-        .recover(handle_rejection)
+        .recover(handle_rejection) // Global Error Handler
         .with(cors);
 
     // Apply security headers (SRP: logic moved to security.rs)
