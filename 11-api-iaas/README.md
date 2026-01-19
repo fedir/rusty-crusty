@@ -49,6 +49,19 @@ The project uses `utoipa` to generate an **OpenAPI 3.0 specification** at compil
 
 ---
 
+## 🔒 Security: OWASP Top 10 API Standards
+
+The project implements several layers of security to demonstrate high-level API protection:
+
+1.  **API-2: Broken Authentication**: Protected endpoints require a valid `x-api-key` header (Standard: `iaas-secret-key-123`).
+2.  **API-4: Unrestricted Resource Consumption**: Strictly enforced payload size limits (16KB) on all POST requests to prevent DoS.
+3.  **API-8: Security Misconfiguration**:
+    *   **Secure Headers**: Implements `X-Content-Type-Options`, `X-Frame-Options`, and `CSP`.
+    *   **CORS**: Configured with explicit allowed headers and methods.
+    *   **Masked Rejections**: Custom error handlers ensure internal server details aren't leaked in rejections.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites

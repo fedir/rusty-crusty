@@ -127,6 +127,7 @@ mod tests {
         // Request the OpenAPI JSON
         let resp = warp::test::request()
             .method("GET")
+            .header("x-api-key", "iaas-secret-key-123")
             .path("/api-doc/openapi.json")
             .reply(&api)
             .await;
@@ -139,6 +140,26 @@ mod tests {
         assert!(body_str.contains("IaaS API"));
         assert!(body_str.contains("CreateServerRequest"));
 
+        Ok(())
+    }
+
+    /// Security Test: Verifies that missing API Key results in 401 Unauthorized.
+    #[tokio::test]
+    async fn test_security_unauthorized() -> anyhow::Result<()> {
+        let test_dir = tempdir()?;
+        let test_dir_path = test_dir.path().to_str().unwrap();
+        let repo = Arc::new(JsonServerRepository::new(test_dir_path)?);
+        let service: Arc<dyn ManageServers> = Arc::new(ServerService::new(repo));
+        let api = routes(service);
+
+        // Request WITHOUT the x-api-key header
+        let resp = warp::test::request()
+            .method("GET")
+            .path("/servers")
+            .reply(&api)
+            .await;
+
+        assert_eq!(resp.status(), 401);
         Ok(())
     }
 }

@@ -11,7 +11,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use uuid::Uuid;
 use utoipa::{OpenApi, ToSchema};
-use warp::{Filter, Rejection, Reply};
+use warp::{Filter, Rejection, Reply, http::StatusCode};
+use std::convert::Infallible;
+
+const API_KEY: &str = "iaas-secret-key-123"; // In prod, this would be in Env Vars or HashiCorp Vault.
 
 // --- Inbound DTOs (Request Bodies) ---
 // Just like Pydantic models in Python or JSON struct tags in Go.
@@ -51,9 +54,30 @@ pub struct DiskResponse {
 /// Helpers to inject the shared Core Service (Port) into our routes.
 fn with_port(
     port: Arc<dyn ManageServers>,
-) -> impl Filter<Extract = (Arc<dyn ManageServers>,), Error = std::convert::Infallible> + Clone {
+) -> impl Filter<Extract = (Arc<dyn ManageServers>,), Error = Infallible> + Clone {
     warp::any().map(move || Arc::clone(&port))
 }
+
+/// OWASP API-2: BROKEN AUTHENTICATION
+/// This filter checks for a valid API Key in the 'x-api-key' header.
+/// In a real world app, this would check a JWT token or a database session.
+fn with_auth() -> impl Filter<Extract = (), Error = Rejection> + Clone {
+    warp::header::optional::<String>("x-api-key")
+        .and_then(|key: Option<String>| async move {
+            match key {
+                Some(k) if k == API_KEY => Ok(()),
+                _ => Err(warp::reject::custom(SecurityError::Unauthorized)),
+            }
+        })
+        .untuple_one()
+}
+
+#[derive(Debug)]
+enum SecurityError {
+    Unauthorized,
+}
+
+impl warp::reject::Reject for SecurityError {}
 
 #[derive(OpenApi)]
 #[openapi(
@@ -79,9 +103,13 @@ pub fn routes(
 ) -> impl Filter<Extract = impl Reply, Error = Rejection> + Clone {
     
     // POST /servers
+    // OWASP API-4: UNRESTRICTED RESOURCE CONSUMPTION
+    // We limit the request body to 16KB to prevent DoS attacks via large JSON payloads.
     let create_server = warp::post()
         .and(warp::path("servers"))
         .and(warp::path::end())
+        .and(with_auth()) // API-2 Protection
+        .and(warp::body::content_length_limit(1024 * 16)) 
         .and(warp::body::json())
         .and(with_port(Arc::clone(&port)))
         .and_then(handle_create_server);
@@ -90,12 +118,15 @@ pub fn routes(
     let list_servers = warp::get()
         .and(warp::path("servers"))
         .and(warp::path::end())
+        .and(with_auth()) // API-2 Protection
         .and(with_port(Arc::clone(&port)))
         .and_then(handle_list_servers);
 
     // POST /servers/{id}/disks
     let attach_disk = warp::post()
         .and(warp::path!("servers" / Uuid / "disks"))
+        .and(with_auth()) // API-2 Protection
+        .and(warp::body::content_length_limit(1024 * 16))
         .and(warp::body::json())
         .and(with_port(Arc::clone(&port)))
         .and_then(handle_attach_disk);
@@ -106,10 +137,43 @@ pub fn routes(
     let openapi_json = warp::path!("api-doc" / "openapi.json")
         .map(|| warp::reply::json(&ApiDoc::openapi()));
 
+    // --- OWASP API-8: SECURITY MISCONFIGURATION ---
+    // We explicitly configure CORS and provide security headers.
+    let cors = warp::cors()
+        .allow_any_origin() // In production, restrict this to your frontend domain!
+        .allow_headers(vec!["x-api-key", "content-type"])
+        .allow_methods(vec!["GET", "POST", "OPTIONS"]);
+
     create_server
         .or(list_servers)
         .or(attach_disk)
         .or(openapi_json)
+        .recover(handle_rejection) // Clean error messages
+        .with(cors)
+        .with(warp::reply::with::header("X-Content-Type-Options", "nosniff"))
+        .with(warp::reply::with::header("X-Frame-Options", "DENY"))
+        .with(warp::reply::with::header("X-XSS-Protection", "1; mode=block"))
+        .with(warp::reply::with::header("Content-Security-Policy", "default-src 'none'"))
+}
+
+/// OWASP API-8: SECURITY MISCONFIGURATION
+/// Custom rejection handler ensures that we return clean, safe error messages 
+/// to the client. We never want to leak internal Rust error details or stack traces.
+async fn handle_rejection(err: Rejection) -> Result<impl Reply, Infallible> {
+    let (code, message) = if err.is_not_found() {
+        (StatusCode::NOT_FOUND, "Resource not found")
+    } else if let Some(SecurityError::Unauthorized) = err.find() {
+        (StatusCode::UNAUTHORIZED, "Invalid or missing API Key")
+    } else if let Some(_) = err.find::<warp::reject::PayloadTooLarge>() {
+        (StatusCode::PAYLOAD_TOO_LARGE, "Payload too large")
+    } else {
+        // Log the error internally, but don't show the user.
+        eprintln!("Unhandled error: {:?}", err);
+        (StatusCode::INTERNAL_SERVER_ERROR, "An internal error occurred")
+    };
+
+    let json = warp::reply::json(&serde_json::json!({ "error": message }));
+    Ok(warp::reply::with_status(json, code))
 }
 
 #[utoipa::path(
