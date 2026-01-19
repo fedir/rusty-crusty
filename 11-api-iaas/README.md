@@ -62,7 +62,23 @@ The project implements several layers of security to demonstrate high-level API 
 
 ---
 
-## 🚀 Getting Started
+## � SOLID Principles Implementation
+
+This project is a showcase of the **SOLID** design principles in a modern Rust context:
+
+1.  **S - Single Responsibility**: Every file has one purpose.
+    *   `dto.rs` defines the contract.
+    *   `security.rs` handles protection.
+    *   `handlers.rs` manages the HTTP-to-Core translation.
+    *   `mappings.rs` converts data safely.
+2.  **O - Open/Closed**: The system is designed for growth. You can add new storage adapters (like SQL) or new transport layers (like gRPC) without touching the heart of the business logic.
+3.  **L - Liskov Substitution**: We use Traits (`ManageServers`, `ServerRepository`) to ensure that any implementation can be swapped safely.
+4.  **I - Interface Segregation**: Clients only interact with specific traits. The Web layer only sees `ManageServers`, not the internal persistence details.
+5.  **D - Dependency Inversion**: The high-level `ServerService` never depends on low-level JSON files. Both depend on the `ServerRepository` abstraction.
+
+---
+
+## �🚀 Getting Started
 
 ### Prerequisites
 - [Rust & Cargo](https://rustup.rs/) installed.
